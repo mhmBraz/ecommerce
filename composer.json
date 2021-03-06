@@ -1,11 +1,4 @@
 {
-    "name": "hcodebr/ecommerce",
-    "authors": [
-        {
-            "name": "Hcode Treinamentos",
-            "email": "suporte@hcode.com.br"
-        }
-    ],
     "require": {
     	"phpmailer/phpmailer":"5.2.22",
     	"slim/slim":"2.0",
