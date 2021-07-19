@@ -6,6 +6,8 @@ use \Slim\Slim;
 use \Hcode\Page;
 use Hcode\PageAdmin;
 use Hcode\Model\User;
+use Hcode\Model\Category;
+use Hcode\Model\Product;
 
 $app = new Slim();
 
@@ -13,8 +15,11 @@ $app->config('debug', true);
 
 $app->get('/', function () {
   $page = new Page();
-
-  $page->setTpl("index");
+  $products = Product::listAll();
+  $page->setTpl(
+    "index",
+    ['products' => Product::checkLista($products)]
+  );
 });
 
 $app->get('/admin', function () {
@@ -113,6 +118,7 @@ $app->post('/admin/users/:iduser', function ($iduser) {
 });
 
 $app->get("/admin/forgot", function () {
+  User::verifyLogin();
   $page = new PageAdmin([
     "header" => false,
     "footer" => false
@@ -122,13 +128,14 @@ $app->get("/admin/forgot", function () {
 });
 
 $app->post("/admin/forgot", function () {
-
+  User::verifyLogin();
   User::getforgot($_POST["email"]);
   header("Location: /admin/forgot/sent");
   exit;
 });
 
 $app->get("/admin/forgot/sent", function () {
+  User::verifyLogin();
   $page = new PageAdmin([
     "header" => false,
     "footer" => false
@@ -138,7 +145,7 @@ $app->get("/admin/forgot/sent", function () {
 });
 
 $app->get("/admin/forgot/reset", function () {
-
+  User::verifyLogin();
   $user = User::validForgotDecrypt($_GET["code"]);
   $page = new PageAdmin([
     "header" => false,
@@ -155,7 +162,7 @@ $app->get("/admin/forgot/reset", function () {
 });
 
 $app->post("/admin/forgot/reset", function () {
-
+  User::verifyLogin();
   $forgot = User::validForgotDecrypt($_POST["code"]);
   User::setFogot($forgot["idrecovery"]);
 
@@ -176,6 +183,225 @@ $app->post("/admin/forgot/reset", function () {
   );
 });
 
+$app->get("/admin/categories", function () {
+  User::verifyLogin();
+  $categories = Category::listAll();
+  $page = new PageAdmin();
+
+  $page->setTpl(
+    "categories",
+    array(
+      "categories" => $categories
+    )
+  );
+});
+
+$app->get("/admin/categories/create", function () {
+  User::verifyLogin();
+  $page = new PageAdmin();
+
+  $page->setTpl(
+    "categories-create"
+  );
+});
+
+$app->post("/admin/categories/create", function () {
+  User::verifyLogin();
+  $categories = new Category();
+  $categories->setData($_POST);
+  $categories->save();
+  $page = new PageAdmin();
+
+  header("Location: /admin/categories");
+  exit;
+});
+
+$app->get("/admin/categories/:idcategory/delete", function ($idcategory) {
+  User::verifyLogin();
+  $category = new Category();
+  $category->get((int)$idcategory);
+  $category->delete();
+
+  header("Location: /admin/categories");
+  exit;
+});
+
+$app->get("/admin/categories/:idcategory", function ($idcategory) {
+  User::verifyLogin();
+  $category = new Category();
+  $category->get((int)$idcategory);
 
 
+  $page = new PageAdmin();
+
+  $page->setTpl(
+    "categories-update",
+    ["category" => $category->getvalues()]
+  );
+});
+
+$app->post("/admin/categories/:idcategory", function ($idcategory) {
+  User::verifyLogin();
+  $category = new Category();
+  $category->get((int)$idcategory);
+  $category->setData($_POST);
+  $category->save();
+
+
+  header("Location: /admin/categories");
+  exit;
+});
+
+$app->get("/categories/:idcategory", function ($idcategory) {
+
+  $page = (isset($_GET['page'])) ? (int)$_GET['page'] : 1;
+
+  $category = new Category();
+
+  $category->get((int)$idcategory);
+
+  $pagination = $category->getProductsPage($page);
+
+  $pages = [];
+
+  for ($i = 1; $i <= $pagination['pages']; $i++) {
+    array_push($pages, [
+      'link' => '/categories/' . $category->getidcategory() . '?page=' . $i,
+      'page' => $i
+    ]);
+  }
+
+  $page = new Page();
+
+  $page->setTpl("category", [
+    'category' => $category->getValues(),
+    'products' => $pagination["data"],
+    'pages' => $pages
+  ]);
+});
+
+$app->get('/admin/products', function () {
+  User::verifyLogin();
+  $products = Product::listAll();
+  $page = new PageAdmin();
+
+  $page->setTpl(
+    "products",
+    ["products" => $products]
+  );
+});
+
+$app->get('/admin/products/create', function () {
+  User::verifyLogin();
+
+  $page = new PageAdmin();
+
+  $page->setTpl(
+    "products-create"
+  );
+});
+
+$app->post('/admin/products/create', function () {
+  User::verifyLogin();
+  $product = new Product();
+  $product->setData($_POST);
+  $product->save();
+  header("Location: /admin/products");
+  exit;
+});
+
+$app->get('/admin/products/:idproduct', function ($idproduct) {
+  User::verifyLogin();
+  $product = new Product();
+  $product->get((int)$idproduct);
+  $page = new PageAdmin();
+
+  $page->setTpl(
+    "products-update",
+    ['product' => $product->getvalues()]
+  );
+});
+
+$app->post('/admin/products/:idproduct', function ($idproduct) {
+  User::verifyLogin();
+  $product = new Product();
+  $product->get((int)$idproduct);
+  $product->setData($_POST);
+  $product->save();
+  $product->setPhoto($_FILES["file"]);
+  header("Location: /admin/products");
+  exit;
+});
+
+$app->get("/admin/products/:idproduct/delete", function ($idproduct) {
+  User::verifyLogin();
+  $product = new Product();
+  $product->get((int)$idproduct);
+  $product->delete();
+
+  header("Location: /admin/products");
+  exit;
+});
+
+$app->get("/admin/categories/:idcategory/products", function ($idcategory) {
+  User::verifyLogin();
+
+  $category = new Category();
+  $category->get((int)$idcategory);
+
+  $page = new PageAdmin();
+
+  $page->setTpl(
+    "categories-products",
+    [
+      'category' => $category->getvalues(),
+      'productsRelated' => $category->getProducts(),
+      'productsNotRelated' => $category->getProducts(false)
+    ]
+  );
+});
+
+$app->get("/admin/categories/:idcategory/products/:idproduct/add", function ($idcategory, $idproduct) {
+  User::verifyLogin();
+
+  $category = new Category();
+  $category->get((int)$idcategory);
+
+  $product = new Product();
+  $product->get((int)$idproduct);
+
+  $category->addProduct($product);
+
+  header("Location: /admin/categories/" . $idcategory . "/products");
+  exit;
+});
+
+$app->get("/admin/categories/:idcategory/products/:idproduct/add", function ($idcategory, $idproduct) {
+  User::verifyLogin();
+
+  $category = new Category();
+  $category->get((int)$idcategory);
+
+  $product = new Product();
+  $product->get((int)$idproduct);
+
+  $category->removeProduct($product);
+
+  header("Location: /admin/categories/" . $idcategory . "/products");
+  exit;
+});
+
+$app->get("/products/:desurl", function ($desurl) {
+
+  $product = new Product();
+  $product->getFromURL($desurl);
+  $page = new Page();
+  $page->setTpl(
+    "product-detail",
+    [
+      'product' => $product->getvalues(),
+      'categories' => $product->getCategories()
+    ]
+  );
+});
 $app->run();
